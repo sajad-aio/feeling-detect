@@ -1,0 +1,227 @@
+/* static/css/style.css */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f5f5f5;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+h1 {
+    text-align: center;
+    color: #333;
+}
+
+.upload-section {
+    margin: 20px 0;
+    text-align: center;
+}
+
+.camera-container {
+    margin: 20px auto;
+    max-width: 640px;
+    width: 100%;
+}
+
+video {
+    width: 100%;
+    border-radius: 5px;
+}
+
+.buttons {
+    margin: 20px 0;
+}
+
+button, .upload-btn {
+    padding: 10px 20px;
+    margin: 0 10px;
+    border: none;
+    border-radius: 5px;
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover, .upload-btn:hover {
+    background-color: #45a049;
+}
+
+#fileInput {
+    display: none;
+}
+
+.feedback-section {
+    margin: 20px 0;
+    text-align: center;
+}
+
+#emotionSelection {
+    margin: 20px 0;
+    text-align: center;
+}
+
+select {
+    padding: 5px 10px;
+    margin: 0 10px;
+}
+
+#contentSection {
+    margin: 20px 0;
+    padding: 20px;
+    border-radius: 5px;
+}
+
+#storySection {
+    margin: 20px 0;
+    padding: 20px;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+#audioPlayer {
+    width: 100%;
+    margin: 20px 0;
+}
+
+#historySection {
+    margin: 20px 0;
+}
+
+#historyChart {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* static/js/main.js */
+let currentEmotion = null;
+let video = document.getElementById('video');
+let canvas = document.getElementById('canvas');
+let startButton = document.getElementById('startCamera');
+let captureButton = document.getElementById('captureImage');
+let fileInput = document.getElementById('fileInput');
+
+// شروع دوربین
+startButton.addEventListener('click', async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        startButton.style.display = 'none';
+        captureButton.style.display = 'inline-block';
+    } catch (err) {
+        console.error('Error accessing camera:', err);
+        alert('Could not access camera');
+    }
+});
+
+// گرفتن عکس از دوربین
+captureButton.addEventListener('click', () => {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    
+    canvas.toBlob((blob) => {
+        const formData = new FormData();
+        formData.append('image', blob, 'capture.jpg');
+        uploadImage(formData);
+    }, 'image/jpeg');
+});
+
+// آپلود فایل تصویر
+fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        const formData = new FormData();
+        formData.append('image', file);
+        uploadImage(formData);
+    }
+});
+
+// آپلود تصویر به سرور
+async function uploadImage(formData) {
+    try {
+        const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            currentEmotion = data.emotion;
+            displayResult(data);
+        } else {
+            alert('Error: ' + data.message);
+        }
+    } catch (err) {
+        console.error('Error uploading image:', err);
+        alert('Error uploading image');
+    }
+}
+
+// نمایش نتیجه
+function displayResult(data) {
+    document.getElementById('resultSection').style.display = 'block';
+    document.getElementById('emotionResult').textContent = data.emotion;
+    document.getElementById('emotionSelection').style.display = 'none';
+}
+
+// تایید احساس
+function confirmEmotion() {
+    if (currentEmotion) {
+        showContent(currentEmotion);
+    }
+}
+
+// نمایش انتخاب احساس
+function showEmotionSelection() {
+    document.getElementById('emotionSelection').style.display = 'block';
+}
+
+// به‌روزرسانی احساس
+async function updateEmotion() {
+    const emotion = document.getElementById('emotionDropdown').value;
+    try {
+        const response = await fetch('/update_emotion', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ emotion })
+        });
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            currentEmotion = emotion;
+            showContent(data.content);
+        } else {
+            alert('Error: ' + data.message);
+        }
+    } catch (err) {
+        console.error('Error updating emotion:', err);
+        alert('Error updating emotion');
+    }
+}
+
+// نمایش محتوا
+function showContent(content) {
+    const contentSection = document.getElementById('contentSection');
+    const storySection = document.getElementById('storySection');
+    const audioPlayer = document.getElementById('audioPlayer');
+    
+    contentSection.style.display = 'block';
+    contentSection.style.backgroundColor = content.color;
+    
+    // نمایش داستان
+    const story = content.stories[Math.floor(Math.random() * content.stories.length)];
+    storySection.textContent = story;
+    
+    // پخش موسیقی
+    const music = content.music[Math.floor(Math.random() * content.music.length)];

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تشخیص احساسات | Emotion Detection</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        body {
+            transition: background-color 0.5s ease;
+        }
+        .gradient-background {
+            background: linear-gradient(120deg, #84fab0 0%, #8fd3f4 100%);
+            min-height: 100vh;
+        }
+        .camera-container {
+            aspect-ratio: 4/3;
+            max-width: 500px;
+            margin: 0 auto;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            background: #000;
+        }
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+        .emotion-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        .btn-primary {
+            background: linear-gradient(45deg, #2193b0, #6dd5ed);
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px;
+            color: white;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            min-width: 150px;
+            text-align: center;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .language-switcher {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1001;
+            display: flex;
+            gap: 10px;
+        }
+        .nav-button {
+            background: linear-gradient(45deg, #2193b0, #6dd5ed);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+        .nav-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .rating-btn {
+            background: linear-gradient(45deg, #2193b0, #6dd5ed);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+        }
+        .rating-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .story-navigation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 1rem 0;
+        }
+        .story-content {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin: 1rem 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .music-controls {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1rem;
+            border-radius: 10px;
+            margin: 1rem 0;
+        }
+        .advisor-card, .diary-card {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin: 1rem 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .diary-input {
+            width: 100%;
+            min-height: 150px;
+            padding: 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            resize: vertical;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+            margin: 2rem auto;
+        }
+        .animation-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1000;
+}
+
+@keyframes fallAnimation {
+    0% {
+        transform: translateY(-10vh) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+.seasonal-particle {
+    position: absolute;
+    animation: fallAnimation 10s linear infinite;
+}
+
+.happy-flower {
+    font-size: 24px;
+    content: '🌸';
+}
+
+.autumn-leaf {
+    font-size: 24px;
+    content: '🍁';
+}
+
+.winter-snow {
+    font-size: 18px;
+    content: '❄️';
+}
+
+.summer-spark {
+    font-size: 20px;
+    content: '✨';
+}
+    </style>
+</head>
+<body class="gradient-background">
+    <div class="fixed top-4 left-4 z-50">
+        <button onclick="showHistory()" class="nav-button" data-en="Emotion History" data-fa="تاریخچه احساسات"></button>
+    </div>
+
+    <div class="fixed top-4 right-4 z-50 flex gap-4">
+        <button onclick="showLoginModal()" class="nav-button" data-en="Login" data-fa="ورود به حساب کاربری"></button>
+        <button onclick="switchLanguage('en')" class="nav-button">English</button>
+        <button onclick="switchLanguage('fa')" class="nav-button">فارسی</button>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold mb-4" data-en="User Account" data-fa="حساب کاربری"></h2>
+            <div id="loginForm">
+                <input type="email" id="userEmail" class="w-full p-2 border rounded mb-4" placeholder="Email">
+                <input type="password" id="userPassword" class="w-full p-2 border rounded mb-4" placeholder="Password">
+                <div class="flex justify-between mb-4">
+                    <button onclick="showForgotPassword()" class="text-blue-500 hover:underline" data-en="Forgot Password?" data-fa="فراموشی رمز عبور"></button>
+                    <button onclick="showCreateAccount()" class="text-blue-500 hover:underline" data-en="Create Account" data-fa="ساخت حساب کاربری"></button>
+                </div>
+                <div class="flex justify-end gap-4">
+                    <button onclick="closeLoginModal()" class="nav-button" data-en="Cancel" data-fa="انصراف"></button>
+                    <button onclick="handleLogin()" class="nav-button" data-en="Login" data-fa="ورود"></button>
+                </div>
+            </div>
+
+            <!-- Forgot Password Form -->
+            <div id="forgotPasswordForm" class="hidden">
+                <input type="email" id="forgotEmail" class="w-full p-2 border rounded mb-4" placeholder="Email">
+                <div class="flex justify-end gap-4">
+                    <button onclick="showLoginForm()" class="nav-button" data-en="Back" data-fa="بازگشت"></button>
+                    <button onclick="handleForgotPassword()" class="nav-button" data-en="Send Reset Link" data-fa="ارسال لینک بازیابی"></button>
+                </div>
+            </div>
+
+            <!-- Create Account Form -->
+            <div id="createAccountForm" class="hidden">
+                <input type="text" id="newUsername" class="w-full p-2 border rounded mb-4" placeholder="Username">
+                <input type="email" id="newEmail" class="w-full p-2 border rounded mb-4" placeholder="Email">
+                <input type="password" id="newPassword" class="w-full p-2 border rounded mb-4" placeholder="Password">
+                <div class="flex justify-end gap-4">
+                    <button onclick="showLoginForm()" class="nav-button" data-en="Back" data-fa="بازگشت"></button>
+                    <button onclick="handleCreateAccount()" class="nav-button" data-en="Create Account" data-fa="ایجاد حساب"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div id="historyModal" class="modal">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold mb-4" data-en="Emotion History" data-fa="تاریخچه احساسات"></h2>
+            <div id="historyContent" class="max-h-[60vh] overflow-y-auto"></div>
+            <button onclick="closeHistoryModal()" class="nav-button mt-4" data-en="Close" data-fa="بستن"></button>
+        </div>
+    </div>
+
+    <div class="container mx-auto px-4 py-8">
+        <div class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-white mb-4" id="mainTitle" data-en="Emotion Detection" data-fa="تشخیص احساسات"></h1>
+            <p class="text-white text-lg" id="mainDescription" data-en="Discover your emotions through AI" data-fa="کشف احساسات شما با هوش مصنوعی"></p>
+        </div>
+
+        <div id="detectedEmotion" class="text-center mb-6 hidden">
+            <div class="flex items-center justify-center gap-4">
+                <h2 class="text-3xl font-bold text-white" data-en="Detected Emotion:" data-fa="احساس شناسایی شده:"></h2>
+                <p id="emotionText" class="text-3xl font-bold text-white"></p>
+                <span id="emojiDisplay" class="text-4xl"></span>
+            </div>
+        </div>
+
+        <div class="max-w-4xl mx-auto">
+            <div class="camera-container mb-8">
+                <video id="video" autoplay playsinline></video>
+                <canvas id="canvas" class="hidden"></canvas>
+            </div>
+
+            <div class="button-container">
+                <button id="startCamera" class="btn-primary" data-en="Start Camera" data-fa="شروع دوربین"></button>
+                <button id="capture" class="btn-primary hidden" data-en="Take Photo" data-fa="گرفتن عکس"></button>
+                <label for="imageInput" class="btn-primary cursor-pointer" data-en="Upload Image" data-fa="آپلود تصویر"></label>
+                <input type="file" id="imageInput" accept="image/*" class="hidden" />
+            </div>
+
+            <div id="result" class="emotion-card p-6 hidden">
+                <div class="story-section">
+                    <h3 class="text-xl font-bold mb-4" id="storyTitle" data-en="Stories" data-fa="داستان‌ها"></h3>
+                    <div class="story-navigation">
+                        <button onclick="prevStory()" class="nav-button" data-en="Previous Story" data-fa="داستان قبلی"></button>
+                        <span id="storyCounter" class="text-lg font-semibold">1/3</span>
+                        <button onclick="nextStory()" class="nav-button" data-en="Next Story" data-fa="داستان بعدی"></button>
+                    </div>
+                    <div id="storyContent" class="story-content"></div>
+                    <div class="rating-section mt-4">
+                        <p class="mb-2" data-en="How did you like this story?" data-fa="این داستان را چقدر پسندیدید؟"></p>
+                        <div class="flex justify-center gap-4">
+                            <button onclick="rateStory('low')" class="rating-btn" data-en="Low" data-fa="کم"></button>
+                            <button onclick="rateStory('medium')" class="rating-btn" data-en="Medium" data-fa="متوسط"></button>
+                            <button onclick="rateStory('high')" class="rating-btn" data-en="High" data-fa="زیاد"></button>
+                        </div>
+                    </div>
+                </div>
+            
+                <div class="music-section mt-6">
+                    <h3 class="text-xl font-bold mb-4" id="musicTitle" data-en="Music" data-fa="موسیقی"></h3>
+                    <div class="story-navigation">
+                        <button onclick="prevMusic()" class="nav-button" data-en="Previous Track" data-fa="آهنگ قبلی"></button>
+                        <span id="musicCounter" class="text-lg font-semibold">1/3</span>
+                        <button onclick="nextMusic()" class="nav-button" data-en="Next Track" data-fa="آهنگ بعدی"></button>
+                    </div>
+                    <div class="music-controls">
+                        <audio id="seasonalAudio" controls controlsList="nodownload noplaybackrate" class="w-full">
+                            <source src="" type="audio/mpeg">
+                        </audio>                        
+                    </div>
+                    <div class="rating-section mt-4">
+                    <p class="mb-2" data-en="How did you like this music?" data-fa="این موسیقی را چقدر پسندیدید؟"></p>
+                        <div class="flex justify-center gap-4">
+                            <button onclick="rateMusic('low')" class="rating-btn" data-en="Low" data-fa="کم"></button>
+                            <button onclick="rateMusic('medium')" class="rating-btn" data-en="Medium" data-fa="متوسط"></button>
+                            <button onclick="rateMusic('high')" class="rating-btn" data-en="High" data-fa="زیاد"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="seasonal-image-section mt-4">
+                    <h3 class="text-xl font-bold mb-4" data-en="Seasonal Mood" data-fa="تصویر فصلی"></h3>
+                    <div class="seasonal-image-container">
+                        <img id="seasonalImage" class="w-full h-64 object-cover rounded-lg shadow-lg" src="" alt="Seasonal Image">
+                    </div>
+                </div>
+            
+                <div class="advisor-section mt-6">
+                    <h3 class="text-xl font-bold mb-4" data-en="Advisor's Recommendation" data-fa="توصیه مشاور"></h3>
+                    <div id="advisorContent" class="advisor-card"></div>
+                </div>
+            
+                <div class="diary-section mt-6">
+                    <h3 class="text-xl font-bold mb-4" data-en="Daily Emotion Diary" data-fa="یادداشت احساسات روزانه"></h3>
+                    <div class="diary-card">
+                        <textarea id="diaryInput" class="diary-input" data-en="Write your thoughts and feelings here..." data-fa="افکار و احساسات خود را اینجا بنویسید..."></textarea>
+                        <button onclick="saveDiary()" class="btn-primary mt-4" data-en="Save" data-fa="ذخیره"></button>
+                    </div>
+                </div>
+            </div>            
+        </div>
+    </div>
+
+    <div id="userWelcome" class="hidden fixed top-4 right-4 z-50 text-white bg-gradient-to-r from-blue-500 to-teal-500 py-2 px-4 rounded-full shadow-lg">
+        <span id="welcomeMessage"></span>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
+
